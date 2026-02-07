@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Differential Pressure Monitoring System</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Roboto:wght@400;500&family=JetBrains+Mono:wght@500;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f7fafc;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-badge {
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 999px;
+            background: #dcfce7;
+            color: #166534;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-3">
+                <div class="text-xl font-bold">Vizibble</div>
+                <div class="flex gap-6 text-sm">
+                    <a href="./index.html" class="text-blue-200 hover:text-white">Dashboard</a>
+                    <a href="./diff-pressure.html" class="border-b-2 border-white pb-1">Differential Pressure</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="container mx-auto px-4 py-8">
+
+        <!-- GRID -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+
+            <!-- LEFT KPI COLUMN -->
+            <div class="flex flex-col gap-8 h-full">
+                <!-- PRESSURE GAUGE CARD -->
+                <div class="bg-white border rounded-xl p-6 flex flex-col h-full">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-gray-600 font-semibold text-sm uppercase">Differential Pressure</h3>
+                        <span id="status-text" class="status-badge">Normal</span>
+                    </div>
+                    <div id="pressureGauge" style="height: 250px; width: 100%; margin-top: auto; margin-bottom: auto;"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT CHART -->
+            <div class="lg:col-span-2 bg-white border rounded-xl p-6 h-full">
+                <h3 class="font-bold text-gray-800 text-xl mb-4">Today Overview</h3>
+                <div id="combinedChart" style="height: 480px;"></div>
+            </div>
+
+        </div>
+
+        <!-- HISTORICAL -->
+        <div class="mt-8 bg-white border rounded-xl p-6">
+            <h3 class="font-bold text-gray-800 text-xl mb-4">Last week</h3>
+            <div id="historicalChart" style="height:400px;"></div>
+        </div>
+
+    </main>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            // --- INITIALIZATION ---
+            const initialPressure = 0;
+
+            // --- ECHARTS SETUP ---
+            const pressureGauge = echarts.init(document.getElementById('pressureGauge'));
+            const combinedChart = echarts.init(document.getElementById('combinedChart'));
+            const historicalChart = echarts.init(document.getElementById('historicalChart'));
+
+            let timeData = generateInitialData(50);
+
+            function generateInitialData(points) {
+                const data = [];
+                const start = new Date();
+                start.setSeconds(start.getSeconds() - points * 2);
+                let pressure = initialPressure;
+
+                for (let i = 0; i < points; i++) {
+                    const time = new Date(start.getTime() + i * 2000);
+                    pressure += (Math.random() - 0.5) * 0.5;
+                    const pull = -pressure * 0.01;
+                    pressure += pull;
+                    if (Math.random() < 0.02) {
+                        pressure += (Math.random() - 0.5) * 4;
+                    }
+                    pressure = Math.max(-10, Math.min(10, pressure));
+                    data.push({ time, pressure: parseFloat(pressure.toFixed(1)) });
+                }
+                return data;
+            }
+
+            pressureGauge.setOption({
+                series: [{
+                    type: 'gauge',
+                    center: ['50%', '60%'],
+                    startAngle: 200,
+                    endAngle: -20,
+                    min: -10,
+                    max: 10,
+                    splitNumber: 10,
+                    pointer: {
+                        length: '75%',
+                        width: 5,
+                        itemStyle: { color: '#2563eb' }
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            width: 18,
+                            color: [
+                                [0.2, '#EF4444'], // Danger
+                                [0.4, '#F59E0B'], // Warning
+                                [0.8, '#10B981'], // Safe
+                                [1, '#EF4444']    // Danger
+                            ]
+                        }
+                    },
+                    axisTick: { distance: -25, length: 8, lineStyle: { color: '#9ca3af', width: 1 } },
+                    splitLine: { distance: -31, length: 15, lineStyle: { color: '#9ca3af', width: 2 } },
+                    axisLabel: { distance: 5, color: '#4a5568', fontSize: 12 },
+                    detail: {
+                        valueAnimation: true,
+                        offsetCenter: [0, '60%'],
+                        fontSize: 35,
+                        fontWeight: 'bold',
+                        color: '#1a202c',
+                        formatter: '{value} Pa'
+                    },
+                    data: [{ value: initialPressure }]
+                }]
+            });
+
+            combinedChart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['Pressure'] },
+                xAxis: { type: 'time' },
+                yAxis: { type: 'value', name: 'Pa', min: -12, max: 12 },
+                dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+                series: [
+                    { name: 'Pressure', type: 'line', smooth: true, showSymbol: false, data: timeData.map(d => [d.time, d.pressure]) }
+                ]
+            });
+
+            historicalChart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['Avg Pressure'] },
+                xAxis: { type: 'category', data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+                yAxis: { type: 'value', name: 'Pa' },
+                series: [
+                    { name: 'Avg Pressure', type: 'bar', data: [-2.5, 1.2, 3.8, -0.9, 2.5, 4.1, 0.3] }
+                ]
+            });
+
+            // --- LIVE DATA UPDATE ---
+            function updateLiveData() {
+                const lastDataPoint = timeData[timeData.length - 1];
+                let pressure = lastDataPoint.pressure;
+
+                pressure += (Math.random() - 0.5) * 0.5;
+                const pull = -pressure * 0.01;
+                pressure += pull;
+                if (Math.random() < 0.02) {
+                    pressure += (Math.random() - 0.5) * 4;
+                }
+                pressure = Math.max(-10, Math.min(10, pressure));
+                const newPressure = parseFloat(pressure.toFixed(1));
+
+                // Update Gauge
+                pressureGauge.setOption({
+                    series: [{ data: [{ value: newPressure }] }]
+                });
+
+                // Update Status Badge
+                updateStatusBadge(newPressure, 8, 5, -5, -8, $('#status-text'));
+
+                // Update Chart
+                const now = new Date();
+                timeData.push({ time: now, pressure: newPressure });
+                timeData.shift();
+
+                combinedChart.setOption({
+                    series: [{ data: timeData.map(d => [d.time, d.pressure]) }]
+                });
+            }
+
+            function updateStatusBadge(value, high_danger, high_warn, low_warn, low_danger, badgeElement) {
+                if (value >= high_danger || value <= low_danger) {
+                    badgeElement.text('Danger').css({ 'background-color': '#fecaca', 'color': '#991b1b' });
+                } else if (value >= high_warn || value <= low_warn) {
+                    badgeElement.text('Warning').css({ 'background-color': '#fef08a', 'color': '#854d0e' });
+                } else {
+                    badgeElement.text('Normal').css({ 'background-color': '#dcfce7', 'color': '#166534' });
+                }
+            }
+
+            setInterval(updateLiveData, 2000);
+
+            // --- RESPONSIVE RESIZE ---
+            window.addEventListener('resize', () => {
+                pressureGauge.resize();
+                combinedChart.resize();
+                historicalChart.resize();
+            });
+        });
+    </script>
+
+</body>
+
+</html>
